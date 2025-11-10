@@ -34,7 +34,7 @@ Functions to init and use a bluetooth-UART translation
 
 typedef enum{
 	BLUART_407 = 0,
-	BLUART_413,
+	//BLUART_413,
 	NB_BLUART,
 } BLUART_NB;
 

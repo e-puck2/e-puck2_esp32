@@ -25,6 +25,8 @@ Firmware to be run on the ESP32 of the e-puck2
 #include "button_e-puck2.h"
 #include "spi_e-puck2.h"
 #include "esp_chip_info.h"
+#include "mp_component.h"
+#include "esp_log.h"
 
 extern int btstack_setup(int argc, const char * argv[]);
 static bool chip_psram_flag = false;
@@ -36,6 +38,11 @@ bool chip_has_psram(void)
 
 void app_main(void)
 {
+  esp_log_level_set("*", ESP_LOG_NONE);
+  //esp_log_level_set("*", ESP_LOG_INFO); 
+  //esp_log_level_set("*", ESP_LOG_DEBUG); 
+  //esp_log_level_set("*", ESP_LOG_VERBOSE); 
+
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   if (chip_info.features & CHIP_FEATURE_EMB_PSRAM) 
@@ -71,10 +78,13 @@ void app_main(void)
 
   // RGB handling task.
   xTaskCreatePinnedToCore(rgb_task, "rgb_task", 2048, NULL, 4, NULL, CORE_0);    
+
+  init_micropython();
   
   //btstack works as a loop called from the main. So every other task should be created before the call
   //of this function
   //main runs always on core 0
   btstack_setup(0, NULL);
   btstack_run_loop_execute();
+
 }

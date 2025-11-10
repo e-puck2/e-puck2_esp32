@@ -1,0 +1,4 @@
+[submodule "components/mp_component/micropython"]
+	path = components/mp_component/micropython
+	url = https://github.com/e-puck2/micropython.git
+	branch = e-puck2

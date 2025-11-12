@@ -140,5 +140,6 @@ void example_echo_bluetooth_task_channel_2(void *pvParameter);
  */
 void example_echo_bluetooth_task_channel_3(void *pvParameter);
 
+bool bluetoohth_is_connected(void);
 
 #endif /* RFCOMM_E_PUCK2_H */

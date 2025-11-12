@@ -15,6 +15,7 @@ Functions to init and use a bluetooth-UART translation
 #include "main_e-puck2.h"
 #include "bluart_e-puck2.h"
 #include "rfcomm_e-puck2.h"
+#include "uart_e-puck2.h"
 
 #define BLUART_UART_TO_BLUETOOTH_TASK_SIZE		5240
 #define BLUART_UART_TO_BLUETOOTH_TASK_PRIO		5
@@ -183,34 +184,40 @@ void bluart_init(void){
 
 void bluart_generic_uart_to_bluetooth_task(bluart_config_t* bluart, uint8_t* buffer, int32_t* len, int16_t* status){
 	vTaskDelay(1 / portTICK_PERIOD_MS);
-    //Read data from UART
-	*len = uart_read_bytes(bluart->uart_port, buffer, BLUART_BUFFER_SIZE, DELAY_1_TICKS);
-	//Write to the bluetooth tx buffer
-	if(*len > 0){
-        while(bluetooth_write(bluart->bluetooth_channel, buffer, *len, status) != DATAS_WRITTEN){
-        	//if bluetooth is not connected, we skip the sending
-        	//it is like flushing the datas if nobody is listening
-        	if(*status == BLUETOOTH_NOT_CONNECTED){
-		    	 break;
-		    }
-            //vTaskDelay(1 / portTICK_PERIOD_MS);
-        }
-    }
+	if(uart_is_transparent_mode())
+	{
+		//Read data from UART
+		*len = uart_read_bytes(bluart->uart_port, buffer, BLUART_BUFFER_SIZE, DELAY_1_TICKS);
+		//Write to the bluetooth tx buffer
+		if(*len > 0){
+			while(bluetooth_write(bluart->bluetooth_channel, buffer, *len, status) != DATAS_WRITTEN){
+				//if bluetooth is not connected, we skip the sending
+				//it is like flushing the datas if nobody is listening
+				if(*status == BLUETOOTH_NOT_CONNECTED){
+					break;
+				}
+				//vTaskDelay(1 / portTICK_PERIOD_MS);
+			}
+		}
+	}
 }
 
 void bluart_generic_bluetooth_to_uart_task(bluart_config_t* bluart, uint8_t* buffer, int32_t* len, int16_t* status){
 	vTaskDelay(1 / portTICK_PERIOD_MS);
-    //read data from bluetooth rx buffer
-    *len = bluetooth_read(bluart->bluetooth_channel, buffer, BLUART_BUFFER_SIZE, status);
-    //updates the pin to tell the bluetooth is connected
-    if(*status == BLUETOOTH_NOT_CONNECTED){
-    	bluart->gpio_set_level_func(bluart->gpio_status_pin, BLUART_NOT_CONNECTED);
-    }else{
-    	bluart->gpio_set_level_func(bluart->gpio_status_pin, BLUART_CONNECTED);
-    }	
-	//write to UART
-    if(*len > 0) {
-		uart_write_bytes(bluart->uart_port, (const char*) buffer, *len);
+	if(uart_is_transparent_mode())
+	{
+		//read data from bluetooth rx buffer
+		*len = bluetooth_read(bluart->bluetooth_channel, buffer, BLUART_BUFFER_SIZE, status);
+		//updates the pin to tell the bluetooth is connected
+		if(*status == BLUETOOTH_NOT_CONNECTED){
+			bluart->gpio_set_level_func(bluart->gpio_status_pin, BLUART_NOT_CONNECTED);
+		}else{
+			bluart->gpio_set_level_func(bluart->gpio_status_pin, BLUART_CONNECTED);
+		}	
+		//write to UART
+		if(*len > 0) {
+			uart_write_bytes(bluart->uart_port, (const char*) buffer, *len);
+		}
 	}
 }
 /*

@@ -55,7 +55,7 @@ void app_main(void)
   }
   rgb_init();
   button_init();
-  //bluart_init();
+  bluart_init();
   uart_init();
   spi_init();
 
@@ -84,7 +84,7 @@ void app_main(void)
   //btstack works as a loop called from the main. So every other task should be created before the call
   //of this function
   //main runs always on core 0
-  //btstack_setup(0, NULL);
-  //btstack_run_loop_execute();
+  btstack_setup(0, NULL);
+  btstack_run_loop_execute();
 
 }

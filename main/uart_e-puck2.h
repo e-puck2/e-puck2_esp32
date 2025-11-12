@@ -62,5 +62,6 @@ void uart_set_rgb_led8(uint8_t red, uint8_t green, uint8_t blue);
 void uart_set_rgb_leds(uint8_t *rgb_values);
 void uart_set_sound(uint8_t sound);
 void uart_get_proximity(uint8_t *prox_data);
+bool uart_is_transparent_mode(void);
 
 #endif /* UART_E_PUCK_2_H */

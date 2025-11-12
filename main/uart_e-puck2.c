@@ -12,11 +12,12 @@ Functions to configure and use the UART communication between the ESP32 and both
 #include "driver/uart.h"
 #include "soc/uart_struct.h"
 #include "freertos/event_groups.h"
-
+#include "esp_log.h"
 #include "main_e-puck2.h"
 #include "uart_e-puck2.h"
 #include "rgb_led_e-puck2.h"
 #include "button_e-puck2.h"
+#include "rfcomm_e-puck2.h"
 
 #define UART_407 UART_NUM_1
 
@@ -28,7 +29,7 @@ sensors_buffer_t* uart_rx_buff1; // Rx from F407.
 sensors_buffer_t* uart_rx_buff2;
 sensors_buffer_t* uart_rx_buff_last;
 sensors_buffer_t* uart_rx_buff_curr;
-
+uint8_t uart_transparent_mode = 0;
 static EventGroupHandle_t uart_event_group;
 
 void uart_set_actuators_state(uint8_t *buff) {
@@ -137,6 +138,11 @@ void uart_get_proximity(uint8_t *prox_data) {
 	memcpy(prox_data, &buff->data[37], 16);
 }
 
+bool uart_is_transparent_mode(void)
+{
+	return (uart_transparent_mode == 1);
+}
+
 void advsercom_task(void *pvParameter) {
 	uint8_t uart_state = 0;
 	
@@ -217,7 +223,26 @@ void advsercom_task(void *pvParameter) {
 					vTaskDelay(1000 / portTICK_PERIOD_MS); // Add a pause otherwise the data received by the F407 would be corrupted when the ESP32 and F407 aren't sync.
 				}
 				
-				uart_state = 0;
+				if(bluetoohth_is_connected())
+				{
+					ESP_LOGI("UART","Enter transparent mode\r\n");
+					uart_state = 2;
+					uart_transparent_mode = 1;
+				}
+				else
+				{
+					uart_state = 0;
+				}
+				break;
+
+			case 2: // transparent mode when Bluetooth is connected
+				vTaskDelay(100 / portTICK_PERIOD_MS);
+				if(!bluetoohth_is_connected())
+				{
+					ESP_LOGI("UART","Exit transparent mode\r\n");
+					uart_state = 0;
+					uart_transparent_mode = 0;
+				}
 				break;
 		}
 	}

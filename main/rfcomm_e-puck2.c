@@ -26,6 +26,7 @@ Functions to control and use the bluetooth stack
 #include "main_e-puck2.h"
 #include "rfcomm_e-puck2.h"
 #include "button_e-puck2.h"
+#include "uart_e-puck2.h"
 
 #define SERVICE_RECORD              0x10001   //service class id (could be everything)
 #define SERVICE_BUFFER_SIZE         150
@@ -273,6 +274,16 @@ static void one_shot_timer_setup(void){
     btstack_run_loop_add_timer(&heartbeat);
 }
 
+bool bluetoohth_is_connected(void)
+{
+    for(int i = 0 ; i < NB_RFCOMM_CHANNELS ; i++){
+        if(rf_channel[i].remote_id){
+            return true;
+        }
+    }
+    return false;
+}
+
 /* 
  * Function to handle the events related with the bluetooth communication
 */
@@ -327,6 +338,7 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
                         bluetooth_discoverable_control(DISABLE);
                         bluetooth_connectable_control(DISABLE);
                         rfcomm_request_can_send_now_event(rf_channel[ch_used].remote_id);
+                        uart_get_data_ptr(); // This is needed in order to enter transparent mode when bluetooth is connected
                     }
                     break;
                 case RFCOMM_EVENT_CAN_SEND_NOW:

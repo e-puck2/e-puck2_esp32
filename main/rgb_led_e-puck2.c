@@ -13,6 +13,7 @@ Functions to control the RGB LEDs connected of the ESP32 of the E-Puck 2
 #include "main_e-puck2.h"
 #include "esp_attr.h"   
 #include "esp_err.h"
+#include "esp_log.h"
 #include "rgb_led_e-puck2.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -22,6 +23,9 @@ Functions to control the RGB LEDs connected of the ESP32 of the E-Puck 2
 
 const int UPDATE_ALL_RGB_LEDS = BIT0;
 const int UPDATE_LED2 = BIT1;
+const int UPDATE_LED4 = BIT2;
+const int UPDATE_LED6 = BIT3;
+const int UPDATE_LED8 = BIT4;
 uint8_t rgb_value[NUM_RGB_LED][NUM_LED]= {0};
 static EventGroupHandle_t rgb_event_group;
 int rgb_led8_green_gpio_num = RGB_LED8_GREEN_GPIO;
@@ -240,6 +244,7 @@ void rgb_init(void){
 
 void rgb_set_intensity(rgb_led_name_t rgb_led, led_name_t led, uint8_t intensity, uint16_t time_ms){
 
+  //ESP_LOGI("RGB_LED", "Set intensity LED %d color %d to %d over %d ms", rgb_led, led, intensity, time_ms);
   if(intensity > RGB_MAX_INTENSITY){
     //intensity = RGB_MAX_INTENSITY;
 	return; // If the intensity is out of range then do nothing.
@@ -290,11 +295,32 @@ void rgb_update_led2(uint8_t r, uint8_t g, uint8_t b) {
 	xEventGroupSetBits(rgb_event_group, UPDATE_LED2);
 }
 
+void rgb_update_led4(uint8_t r, uint8_t g, uint8_t b) {
+	rgb_value[1][0] = r;
+	rgb_value[1][1] = g;
+	rgb_value[1][2] = b;
+	xEventGroupSetBits(rgb_event_group, UPDATE_LED4);
+}
+
+void rgb_update_led6(uint8_t r, uint8_t g, uint8_t b) {
+	rgb_value[2][0] = r;
+	rgb_value[2][1] = g;
+	rgb_value[2][2] = b;
+	xEventGroupSetBits(rgb_event_group, UPDATE_LED6);
+}
+
+void rgb_update_led8(uint8_t r, uint8_t g, uint8_t b) {
+	rgb_value[3][0] = r;
+	rgb_value[3][1] = g;
+	rgb_value[3][2] = b;
+	xEventGroupSetBits(rgb_event_group, UPDATE_LED8);
+}
+
 void rgb_task(void *pvParameter) {
 	EventBits_t event_bits;
 
 	while(1) {
-		event_bits = xEventGroupWaitBits(rgb_event_group, UPDATE_ALL_RGB_LEDS | UPDATE_LED2, true, false, portMAX_DELAY);
+		event_bits = xEventGroupWaitBits(rgb_event_group, UPDATE_ALL_RGB_LEDS|UPDATE_LED2|UPDATE_LED4|UPDATE_LED6|UPDATE_LED8, false, false, portMAX_DELAY);
 		if(event_bits & UPDATE_ALL_RGB_LEDS) {
 			// At the moment the LED2 is used for WiFi status feedback.
 			rgb_set_intensity(LED2, RED_LED, rgb_value[0][0], 10);
@@ -309,12 +335,29 @@ void rgb_task(void *pvParameter) {
 			rgb_set_intensity(LED8, RED_LED, rgb_value[3][0], 10);
 			rgb_set_intensity(LED8, GREEN_LED, rgb_value[3][1], 10);
 			rgb_set_intensity(LED8, BLUE_LED, rgb_value[3][2], 10);
+      xEventGroupClearBits(rgb_event_group, UPDATE_ALL_RGB_LEDS);
 		} else if(event_bits & UPDATE_LED2) {
 			rgb_set_intensity(LED2, RED_LED, rgb_value[0][0], 1);
 			rgb_set_intensity(LED2, GREEN_LED, rgb_value[0][1], 1);
-			rgb_set_intensity(LED2, BLUE_LED, rgb_value[0][2], 1);		
-		}
-	}
+			rgb_set_intensity(LED2, BLUE_LED, rgb_value[0][2], 1);
+      xEventGroupClearBits(rgb_event_group, UPDATE_LED2);
+		} else if(event_bits & UPDATE_LED4) {
+			rgb_set_intensity(LED4, RED_LED, rgb_value[1][0], 1);
+			rgb_set_intensity(LED4, GREEN_LED, rgb_value[1][1], 1);
+			rgb_set_intensity(LED4, BLUE_LED, rgb_value[1][2], 1);		
+      xEventGroupClearBits(rgb_event_group, UPDATE_LED4);
+		} else if(event_bits & UPDATE_LED6) {
+      rgb_set_intensity(LED6, RED_LED, rgb_value[2][0], 1);
+      rgb_set_intensity(LED6, GREEN_LED, rgb_value[2][1], 1);
+      rgb_set_intensity(LED6, BLUE_LED, rgb_value[2][2], 1);		
+      xEventGroupClearBits(rgb_event_group, UPDATE_LED6);
+    } else if(event_bits & UPDATE_LED8) {
+      rgb_set_intensity(LED8, RED_LED, rgb_value[3][0], 1);
+      rgb_set_intensity(LED8, GREEN_LED, rgb_value[3][1], 1);
+      rgb_set_intensity(LED8, BLUE_LED, rgb_value[3][2], 1);
+      xEventGroupClearBits(rgb_event_group, UPDATE_LED8);
+	  }
+  }
 }
 
 void rgb_led2_gpio_set(uint8_t r, uint8_t g, uint8_t b) {

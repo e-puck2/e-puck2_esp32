@@ -146,7 +146,7 @@ void bluart_init(void){
 
 	for(int i = 0 ; i < NB_BLUART ; i++){
 		bluart_config_t* bluart = &bluart_channel[i];
-
+/*
 		//Configure parameters.
 		uart_param_config(bluart->uart_port, bluart->uart_config);
 	    uart_set_pin(bluart->uart_port, 
@@ -170,7 +170,7 @@ void bluart_init(void){
 	    	gpio_config(bluart->gpio_status_config);
 			gpio_set_level(bluart->gpio_status_pin, BLUART_NOT_CONNECTED);
 	    }
-	    
+*/	    
 	    //creates the tasks to handle the UART-Bluetooth pipelines
 	    xTaskCreatePinnedToCore(bluart->uart_to_bluetooth_func, "uart to bluetooth translator", 
 	              BLUART_UART_TO_BLUETOOTH_TASK_SIZE, NULL, BLUART_UART_TO_BLUETOOTH_TASK_PRIO, NULL, CORE_1);

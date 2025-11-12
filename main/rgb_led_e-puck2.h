@@ -120,6 +120,36 @@ void rgb_task(void *pvParameter);
 void rgb_update_led2(uint8_t r, uint8_t g, uint8_t b);
 
 /**
+ * @brief Update the RGB LED4 intensities and trigger the next update of LED4.
+ *
+ * @param r 	LED4 red intensity.
+ * @param g 	LED4 green intensity.
+ * @param b 	LED4 blue intensity.
+ * 					
+ */
+void rgb_update_led4(uint8_t r, uint8_t g, uint8_t b);
+
+/**
+ * @brief Update the RGB LED6 intensities and trigger the next update of LED6.
+ *
+ * @param r 	LED6 red intensity.
+ * @param g 	LED6 green intensity.
+ * @param b 	LED6 blue intensity.
+ * 					
+ */
+void rgb_update_led6(uint8_t r, uint8_t g, uint8_t b);
+
+/**
+ * @brief Update the RGB LED8 intensities and trigger the next update of LED8.
+ *
+ * @param r 	LED8 red intensity.
+ * @param g 	LED8 green intensity.
+ * @param b 	LED8 blue intensity.
+ * 					
+ */
+void rgb_update_led8(uint8_t r, uint8_t g, uint8_t b);
+
+/**
  * @brief Change the state of the RGB LED2 when in "GPIO" mode.
  *
  * @param r 	LED2 red (1=off, 0=on).

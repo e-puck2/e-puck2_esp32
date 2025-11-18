@@ -17,7 +17,7 @@ These steps clone and install the specific version of the Espressif IoT Developm
 
 1.  Clone the repository for version **v5.4** recursively:
     ```bash
-    git clone -b v5.4 --recursive [https://github.com/espressif/esp-idf.git](https://github.com/espressif/esp-idf.git) esp-idf_5.4
+    git clone -b v5.4 --recursive https://github.com/espressif/esp-idf.git esp-idf_5.4
     ```
 2.  Change into the newly created directory (assuming the default path):
     ```bash
@@ -34,7 +34,7 @@ These steps clone the specific branch of the firmware and initialize its submodu
 
 1.  Clone the `micropython` branch of the firmware repository:
     ```bash
-    git clone -b micropython [https://github.com/e-puck2/e-puck2_esp32.git](https://github.com/e-puck2/e-puck2_esp32.git) e-puck2_esp32_micropython
+    git clone -b micropython https://github.com/e-puck2/e-puck2_esp32.git e-puck2_esp32_micropython
     ```
 2.  Change into the firmware directory:
     ```bash

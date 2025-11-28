@@ -109,6 +109,11 @@ void uart_set_sound(uint8_t sound) {
 	uart_get_data_ptr();
 }
 
+void uart_set_all_actuators(uint8_t *data) {
+	memcpy(&uart_tx_buff[2], &data[0], 19);
+	uart_get_data_ptr();
+}
+
 sensors_buffer_t *uart_get_data_ptr(void) {
 	// Wait for the next buffer to be filled in case it isn't.
 	if(uart_rx_buff_curr->state == SENSORS_BUFF_EMPTY) {
@@ -138,6 +143,60 @@ void uart_get_proximity(uint8_t *prox_data) {
 	memcpy(prox_data, &buff->data[37], 16);
 }
 
+void uart_get_mic(uint8_t *data) 
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[71], 8);
+}
+
+void uart_get_distance(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[69], 2);
+}
+
+void uart_get_sd_state(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[85], 1);
+}
+
+void uart_get_acc_raw(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[0], 6);
+}
+
+void uart_get_battery(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[83], 2);
+}
+
+void uart_get_gyro_raw(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[18], 6);
+}
+
+void uart_get_tv_remote(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[88], 1);
+}
+
+void uart_get_selector(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[89], 1);
+}
+
+void uart_get_all_sensors(uint8_t *data)
+{
+	sensors_buffer_t* buff = uart_get_data_ptr();
+	memcpy(data, &buff->data[0], 103);
+}
+
 bool uart_is_transparent_mode(void)
 {
 	return (uart_transparent_mode == 1);
@@ -151,9 +210,6 @@ void advsercom_task(void *pvParameter) {
 	int len = 0;
 	int flush_len = 0;
 	int flush_tot_len = 0;
-	uint8_t loop_count = 0;
-	uint8_t red_value = 0;
-	uint16_t speed_value = 100;
 	uint8_t flush_byte = 0;
 	uint8_t temp = 0;
 	

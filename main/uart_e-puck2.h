@@ -61,6 +61,7 @@ void uart_set_rgb_led6(uint8_t red, uint8_t green, uint8_t blue);
 void uart_set_rgb_led8(uint8_t red, uint8_t green, uint8_t blue);
 void uart_set_rgb_leds(uint8_t *rgb_values);
 void uart_set_sound(uint8_t sound);
+void uart_set_sound_freq(uint16_t frequency);
 void uart_get_proximity(uint8_t *prox_data);
 void uart_get_mic(uint8_t *data);
 void uart_get_distance(uint8_t *data);
@@ -72,6 +73,7 @@ void uart_get_tv_remote(uint8_t *data);
 void uart_get_selector(uint8_t *data);
 void uart_set_all_actuators(uint8_t *data);
 void uart_get_all_sensors(uint8_t *data);
+int8_t uart_get_mic_data(uint8_t *data);
 bool uart_is_transparent_mode(void);
 
 #endif /* UART_E_PUCK_2_H */

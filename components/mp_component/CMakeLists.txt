@@ -33,6 +33,10 @@ endif()
 # Set location of custom manifest file.
 set(MICROPY_FROZEN_MANIFEST ${CMAKE_CURRENT_LIST_DIR}/manifest.py)
 
+set(USER_C_MODULES
+    ${MICROPY_DIR}/lib/ulab/code/micropython.cmake
+)
+
 # RISC-V specific inclusions
 if(CONFIG_IDF_TARGET_ARCH_RISCV)
     list(APPEND MICROPY_SOURCE_LIB

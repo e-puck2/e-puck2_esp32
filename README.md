@@ -57,14 +57,12 @@ The e-puck 2.2 integrates additional 2 MB of PSRAM, some configurations are need
 2. `idf.py menuconfig`
    1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_20/partitions-4MiB.csv`
    2. Select 4 MB for flash size
-4. Specify `EPUCK20` in `components/mp_component/CMakeLists.txt`
 
 #### e-puck 2.2 configuration
 1. Specify `set(MICROPY_BOARD EPUCK_22)` in `components/mp_component/CMakeLists.txt`
 2. `idf.py menuconfig`
    1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_22/partitions-8MiB.csv`
    2. Select 8 MB for flash size
-3. Specify `EPUCK22` in `components/mp_component/CMakeLists.txt`
 
 ### Firmware Build
 

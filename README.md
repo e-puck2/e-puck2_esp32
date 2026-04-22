@@ -1,9 +1,9 @@
-# 🤖 e-puck2_esp32
+# e-puck2_esp32
 ESP32 firmware of e-puck2, isolated from esp-idf framework.
 
 ---
 
-## 🛠️ Build Instructions
+## Build Instructions
 
 Follow these steps to set up the necessary tools and build the firmware.
 
@@ -48,8 +48,25 @@ These steps clone the specific branch of the firmware and initialize its submodu
     ```bash
     git submodule update
     ```
+### Firmware configuration
 
-### ⚙️ Firmware Build
+The e-puck 2.2 integrates additional 2 MB of PSRAM, some configurations are needed to use it.
+
+#### e-puck 2.0 and e-puck 2.1 configuration
+1. Specify `set(MICROPY_BOARD EPUCK_20)` in `components/mp_component/CMakeLists.txt`
+2. `idf.py menuconfig`
+   1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_20/partitions-4MiB.csv`
+   2. Select 4 MB for flash size
+4. Specify `EPUCK20` in `components/mp_component/CMakeLists.txt`
+
+#### e-puck 2.2 configuration
+1. Specify `set(MICROPY_BOARD EPUCK_22)` in `components/mp_component/CMakeLists.txt`
+2. `idf.py menuconfig`
+   1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_22/partitions-8MiB.csv`
+   2. Select 8 MB for flash size
+3. Specify `EPUCK22` in `components/mp_component/CMakeLists.txt`
+
+### Firmware Build
 
 Once the requirements are set up, you can build the firmware with these steps.
 

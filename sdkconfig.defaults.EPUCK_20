@@ -1,0 +1,4 @@
+# e-puck2.0 (ESP32-WROOM: 4 MB flash, no PSRAM).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="components/mp_component/micropython/ports/esp32/boards/EPUCK_20/partitions-4MiB.csv"

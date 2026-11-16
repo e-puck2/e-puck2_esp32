@@ -12,6 +12,7 @@ Functions to configure and use the SPI communication between the main processor 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #include "spi_e-puck2.h"
 #include "driver/spi_slave.h"
@@ -27,7 +28,7 @@ Functions to configure and use the SPI communication between the main processor 
 #define PIN_NUM_CLK  18
 #define PIN_NUM_CS   5
 
-#define MAX_BUFF_SIZE 38400 // For the image.
+#define MAX_BUFF_SIZE SPI_IMG_SIZE // For the image.
 #define SPI_PACKET_MAX_SIZE 4092
 
 const int EVT_IMG_BUFF_FILL_NEXT = BIT0;
@@ -42,6 +43,14 @@ image_buffer_t* image_buff_curr;
 
 static EventGroupHandle_t spi_event_group;
 static spi_slave_transaction_t transaction;
+
+// The SPI task writes into image_buff_curr; when an image is complete the buffers are swapped (under
+// img_mutex) and image_buff_last holds the most recent complete image. The readers copy image_buff_last
+// holding img_mutex, so the image being read is never overwritten.
+static SemaphoreHandle_t img_mutex;
+static uint32_t img_last_id = 0; // 0 = no image available yet.
+static uint32_t img_frames = 0;
+static uint32_t img_errors = 0;
 
 // Configuration for the SPI bus.
 static spi_bus_config_t buscfg = {
@@ -62,13 +71,58 @@ static spi_slave_interface_config_t slvcfg = {
     //.post_trans_cb=my_post_trans_cb
 };
 
-image_buffer_t* spi_get_data_ptr(void) {
-	// Wait for the next buffer to be filled in case it isn't.
-	if(image_buff_curr->state == IMG_BUFF_EMPTY) {
-		xEventGroupWaitBits(spi_event_group, EVT_IMG_BUFF_FILLED, true, false, portMAX_DELAY);
+bool spi_wait_image(uint32_t last_id, TickType_t ticks_to_wait) {
+	uint32_t id;
+	// Clear the event before checking the id, so that an image completed in between isn't lost.
+	xEventGroupClearBits(spi_event_group, EVT_IMG_BUFF_FILLED);
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	id = img_last_id;
+	xSemaphoreGive(img_mutex);
+	if(id != 0 && id != last_id) {
+		return true;
 	}
-	xEventGroupClearBits(spi_event_group, EVT_IMG_BUFF_FILLED); // This bit remain set if the buffer was already filled, so clear it.
-	
+	xEventGroupWaitBits(spi_event_group, EVT_IMG_BUFF_FILLED, pdTRUE, pdFALSE, ticks_to_wait);
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	id = img_last_id;
+	xSemaphoreGive(img_mutex);
+	return (id != 0 && id != last_id);
+}
+
+int32_t spi_copy_image(uint8_t *dst, uint32_t dst_len, uint32_t *id) {
+	int32_t ret = 0;
+	if(dst_len < SPI_IMG_SIZE) {
+		return -1;
+	}
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	if(img_last_id != 0) {
+		memcpy(dst, image_buff_last->data, SPI_IMG_SIZE);
+		ret = SPI_IMG_SIZE;
+		if(id != NULL) {
+			*id = img_last_id;
+		}
+	}
+	xSemaphoreGive(img_mutex);
+	return ret;
+}
+
+void spi_get_image_stats(uint32_t *frames, uint32_t *errors) {
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	*frames = img_frames;
+	*errors = img_errors;
+	xSemaphoreGive(img_mutex);
+}
+
+void spi_reset_image_stats(void) {
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	img_frames = 0;
+	img_errors = 0;
+	xSemaphoreGive(img_mutex);
+}
+
+// Called by the SPI task when image_buff_curr contains a complete image.
+static void spi_image_completed(void) {
+	xSemaphoreTake(img_mutex, portMAX_DELAY);
+	image_buff_curr->state = IMG_BUFF_FILLED;
 	image_buff_last = image_buff_curr;
 	if(image_buff_curr == image_buff1) {
 		image_buff_curr = image_buff2;
@@ -76,11 +130,13 @@ image_buffer_t* spi_get_data_ptr(void) {
 		image_buff_curr = image_buff1;
 	}
 	image_buff_curr->state = IMG_BUFF_EMPTY;
-	
-	xEventGroupSetBits(spi_event_group, EVT_IMG_BUFF_FILL_NEXT); // Tell the SPI task to fill the next buffer.
-	
-	return image_buff_last;
-
+	img_last_id++;
+	if(img_last_id == 0) {
+		img_last_id = 1;
+	}
+	img_frames++;
+	xSemaphoreGive(img_mutex);
+	xEventGroupSetBits(spi_event_group, EVT_IMG_BUFF_FILLED);
 }
 
 void spi_task(void *pvParameter) {
@@ -191,6 +247,7 @@ void spi_task(void *pvParameter) {
 						spi_state = 4;
 					}
 				} else {
+					img_errors++;
 					spi_state = 0;
 				}
 				break;				
@@ -208,10 +265,10 @@ void spi_task(void *pvParameter) {
 				if(transaction.trans_len == 0) {
 					break;
 				} else if(transaction.trans_len == remainingBytes*8) {
-					image_buff_curr->state = IMG_BUFF_FILLED;
+					spi_image_completed();
 					spi_state = 6;
-					xEventGroupSetBits(spi_event_group, EVT_IMG_BUFF_FILLED);
 				} else {
+					img_errors++;
 					spi_state = 0;
 				}				
 				break;				
@@ -266,6 +323,7 @@ void spi_init(void) {
 	image_buff_curr->state = IMG_BUFF_EMPTY;
 	
 	spi_event_group = xEventGroupCreate();
+	img_mutex = xSemaphoreCreateMutex();
 	
     // Enable pull-ups on SPI lines so we don't detect rogue pulses when no master is connected.
     gpio_set_pull_mode(PIN_NUM_MOSI, GPIO_PULLUP_ONLY);

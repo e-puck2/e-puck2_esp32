@@ -50,19 +50,14 @@ These steps clone the specific branch of the firmware and initialize its submodu
     ```
 ### Firmware configuration
 
-The e-puck 2.2 integrates additional 2 MB of PSRAM, some configurations are needed to use it.
+The board is selected when building (see below), no manual configuration is needed:
 
-#### e-puck 2.0 and e-puck 2.1 configuration
-1. Specify `set(MICROPY_BOARD EPUCK_20)` in `components/mp_component/CMakeLists.txt`
-2. `idf.py menuconfig`
-   1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_20/partitions-4MiB.csv`
-   2. Select 4 MB for flash size
+| Robot | `BOARD` | Flash | Partition table |
+|---|---|---|---|
+| e-puck 2.0 and e-puck 2.1 | `EPUCK_20` | 4 MB | `boards/EPUCK_20/partitions-4MiB.csv` |
+| e-puck 2.2 (additional 2 MB of PSRAM) | `EPUCK_22` | 8 MB | `boards/EPUCK_22/partitions-8MiB.csv` |
 
-#### e-puck 2.2 configuration
-1. Specify `set(MICROPY_BOARD EPUCK_22)` in `components/mp_component/CMakeLists.txt`
-2. `idf.py menuconfig`
-   1. Select the partition table to be `components/mp_component/micropython/ports/esp32/boards/EPUCK_22/partitions-8MiB.csv`
-   2. Select 8 MB for flash size
+The partition tables are in `components/mp_component/micropython/ports/esp32/boards/`.
 
 ### Firmware Build
 
@@ -77,7 +72,25 @@ Once the requirements are set up, you can build the firmware with these steps.
     # Example:
     # cd $HOME/e-puck2_esp32_micropython 
     ```
-3.  Run the **build command** using the ESP-IDF build system:
+3.  Run the **build command** using the ESP-IDF build system, specifying the board with `BOARD`
+    (`EPUCK_20` for e-puck 2.0 and 2.1, `EPUCK_22` for e-puck 2.2). Using a different build directory (`-B`)
+    for each board avoids a full rebuild when switching board:
     ```bash
-    idf.py build
+    # e-puck 2.0 and 2.1 (4 MB flash)
+    idf.py -B build_epuck20 -DBOARD=EPUCK_20 build
+    # e-puck 2.2 (8 MB flash + PSRAM)
+    idf.py -B build_epuck22 -DBOARD=EPUCK_22 build
+    ```
+    If `BOARD` is missing or invalid the build stops with an error.
+    The board is saved in the build directory, so the following commands only need `-B`
+    (e.g. `idf.py -B build_epuck22 -p /dev/ttyUSB0 flash monitor`).
+
+    The ESP-IDF configuration (`<build dir>/sdkconfig.<BOARD>`) is generated from `sdkconfig.defaults` (common options)
+    and `sdkconfig.defaults.<BOARD>` (flash size and partition table). Changes made with `idf.py menuconfig` last until
+    `idf.py fullclean`: to make them permanent add them to the `sdkconfig.defaults*` files, then run `idf.py fullclean`.
+
+    When a robot is flashed with a firmware of the other board, the partition table changes and MicroPython reports
+    "The filesystem appears to be corrupted": erase the flash before flashing (the files on the robot are lost):
+    ```bash
+    idf.py -B build_epuck20 -p /dev/ttyUSB0 erase-flash flash
     ```

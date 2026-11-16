@@ -1,0 +1,4 @@
+# e-puck2.2 (ESP32-PICO-V3-02: 8 MB flash, 2 MB PSRAM).
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="components/mp_component/micropython/ports/esp32/boards/EPUCK_22/partitions-8MiB.csv"

@@ -49,6 +49,15 @@ uint8_t* uart_rx_buff_special = NULL;
 static EventGroupHandle_t cmd_special_group;
 uint8_t uart_tx_end_delim[3] = {'\r', '\n', 0x00};
 
+// Camera image requested with the asercom binary command -'I' (response: mode, width, height, image data).
+#define UART_IMG_HEADER_SIZE 3
+#define UART_IMG_FIRST_DATA_TIMEOUT_MS 1000 // The F407 answers only when the capture is done.
+static uint8_t resp_special_image = 0;
+static uint32_t uart_img_dst_len = 0;
+static uint8_t uart_img_header[UART_IMG_HEADER_SIZE] = {0};
+#define UART_SPECIAL_RESP_TIMEOUT_MS 50
+static uint16_t resp_special_timeout_ms = UART_SPECIAL_RESP_TIMEOUT_MS; // Wait for the first bytes of a special response.
+
 void uart_set_actuators_state(uint8_t *buff) {
 	// uart_tx_buff[2] = buff[2]; // Behaviors/others
 	// uart_tx_buff[3] = buff[3]; // Left speed / left steps LSB
@@ -250,6 +259,111 @@ int8_t uart_get_mic_data(uint8_t *data)
     }	
 }
 
+int32_t uart_get_image(uint8_t *dst, uint32_t dst_len, uint8_t *mode, uint8_t *width, uint8_t *height)
+{
+	EventBits_t uxBits;
+	if(uart_is_transparent_mode()) {
+		return -1;
+	}
+	uart_rx_buff_special = dst;
+	uart_img_dst_len = dst_len;
+	resp_special_image = 1;
+	resp_special_size = 1; // The real size is taken from the image header.
+	memset(uart_tx_buff_special, 0, UART_TX_BUFF_SIZE);
+	uart_tx_buff_special[0] = -'I';
+	cmd_special_size = 2;
+	xEventGroupClearBits(cmd_special_group, EVT_RESP_SPECIAL_OK|EVT_RESP_SPECIAL_FAIL);
+	send_special_cmd = 1;
+	uart_get_data_ptr();
+	uxBits = xEventGroupWaitBits(cmd_special_group, EVT_RESP_SPECIAL_OK|EVT_RESP_SPECIAL_FAIL, true, false, portMAX_DELAY);
+	if((uxBits & EVT_RESP_SPECIAL_OK) == 0) {
+		return -1;
+	}
+	if(mode) *mode = uart_img_header[0];
+	if(width) *width = uart_img_header[1];
+	if(height) *height = uart_img_header[2];
+	return (int32_t)uart_img_header[1] * uart_img_header[2] * (uart_img_header[0] == UART_IMG_MODE_GREY ? 1 : 2);
+}
+
+// Receive the response of the -'I' command: 3 bytes header (mode, width, height) followed by the image.
+static bool uart_recv_image(void)
+{
+	int len = uart_read_bytes(UART_407, uart_img_header, UART_IMG_HEADER_SIZE, UART_IMG_FIRST_DATA_TIMEOUT_MS/portTICK_PERIOD_MS);
+	if(len != UART_IMG_HEADER_SIZE) {
+		return false;
+	}
+	uint32_t size = (uint32_t)uart_img_header[1] * uart_img_header[2] * (uart_img_header[0] == UART_IMG_MODE_GREY ? 1 : 2);
+	if(size == 0 || size > uart_img_dst_len) {
+		return false;
+	}
+	uint32_t total_len = 0;
+	while(total_len < size) {
+		len = uart_read_bytes(UART_407, &uart_rx_buff_special[total_len], size - total_len, 50/portTICK_PERIOD_MS);
+		if(len <= 0) {
+			break;
+		}
+		total_len += len;
+	}
+	return (total_len == size);
+}
+
+// Append ",<value>" to "buf".
+static int uart_append_int(char *buf, int pos, int value)
+{
+	char digits[6];
+	int n = 0;
+	buf[pos++] = ',';
+	if(value < 0) {
+		buf[pos++] = '-';
+		value = -value;
+	}
+	do {
+		digits[n++] = '0' + (value % 10);
+		value /= 10;
+	} while(value > 0 && n < (int)sizeof(digits));
+	while(n > 0) {
+		buf[pos++] = digits[--n];
+	}
+	return pos;
+}
+
+int8_t uart_set_camera(uint8_t mode, uint8_t width, uint8_t height, uint8_t zoom, int16_t x1, int16_t y1)
+{
+	EventBits_t uxBits;
+	char cmd[48]; // Worst case with int16 values: 44 bytes.
+	uint8_t resp[3] = {0};
+	if(uart_is_transparent_mode()) {
+		return -1;
+	}
+	// Asercom ascii command, answer "j\r\n".
+	int len = 0;
+	cmd[len++] = 'J';
+	len = uart_append_int(cmd, len, mode);
+	len = uart_append_int(cmd, len, width);
+	len = uart_append_int(cmd, len, height);
+	len = uart_append_int(cmd, len, zoom);
+	len = uart_append_int(cmd, len, x1);
+	len = uart_append_int(cmd, len, y1);
+	cmd[len++] = '\r';
+	if(len > UART_TX_BUFF_SIZE) {
+		return -1;
+	}
+	uart_rx_buff_special = resp;
+	resp_special_size = sizeof(resp);
+	resp_special_timeout_ms = 500; // The F407 answers after the camera configuration.
+	memset(uart_tx_buff_special, 0, UART_TX_BUFF_SIZE);
+	memcpy(uart_tx_buff_special, cmd, len);
+	cmd_special_size = len;
+	xEventGroupClearBits(cmd_special_group, EVT_RESP_SPECIAL_OK|EVT_RESP_SPECIAL_FAIL);
+	send_special_cmd = 1;
+	uart_get_data_ptr();
+	uxBits = xEventGroupWaitBits(cmd_special_group, EVT_RESP_SPECIAL_OK|EVT_RESP_SPECIAL_FAIL, true, false, portMAX_DELAY);
+	if((uxBits & EVT_RESP_SPECIAL_OK) == 0 || memcmp(resp, "j\r\n", 3) != 0) {
+		return -1;
+	}
+	return 0;
+}
+
 bool uart_is_transparent_mode(void)
 {
 	return (uart_transparent_mode == 1);
@@ -405,12 +519,25 @@ void advsercom_task(void *pvParameter) {
 
 			case UART_STATE_RECV_SPECIAL_RESP:
 				//printf("recv special resp size=%d\r\n", resp_special_size);
+				if(resp_special_image) {
+					resp_special_image = 0;
+					if(uart_recv_image()) {
+						xEventGroupSetBits(cmd_special_group, EVT_RESP_SPECIAL_OK);
+						uart_state = UART_STATE_SEND_STANDARD_CMD;
+					} else {
+						uart_state = UART_STATE_SYNC; // Flush what remains of the response.
+						xEventGroupSetBits(cmd_special_group, EVT_RESP_SPECIAL_FAIL);
+					}
+					resp_special_size = 0;
+					break;
+				}
 				total_len = 0;
 				while(total_len < resp_special_size)
 				{
 					//ESP_LOGI("UART","resp tot_len=%d\r\n", total_len);
 					//printf("resp tot_len=%d\r\n", total_len);
-					len = uart_read_bytes(UART_407, (char*)&uart_rx_buff_special[total_len], (resp_special_size-total_len), 50/portTICK_PERIOD_MS);
+					len = uart_read_bytes(UART_407, (char*)&uart_rx_buff_special[total_len], (resp_special_size-total_len),
+										  (total_len == 0 ? resp_special_timeout_ms : UART_SPECIAL_RESP_TIMEOUT_MS)/portTICK_PERIOD_MS);
 					if(len > 0)
 					{
 						total_len += len;
@@ -446,6 +573,7 @@ void advsercom_task(void *pvParameter) {
 					}
 				}	
 				resp_special_size = 0;
+				resp_special_timeout_ms = UART_SPECIAL_RESP_TIMEOUT_MS;
 				break;
 		}
 	}

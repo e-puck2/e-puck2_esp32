@@ -13,10 +13,14 @@ if(NOT MICROPY_DIR)
 endif()
 
 
-# Set the e-puck board and variant if it's not already set.
+# The e-puck board is selected from the project CMakeLists.txt (idf.py -DBOARD=EPUCK_20|EPUCK_22 build).
 if(NOT MICROPY_BOARD)
-    set(MICROPY_BOARD EPUCK_20)
-    #set(MICROPY_BOARD EPUCK_22)
+    if(CMAKE_BUILD_EARLY_EXPANSION)
+        # Component requirements discovery: the board doesn't matter here, it only needs an existing board dir.
+        set(MICROPY_BOARD EPUCK_20)
+    else()
+        message(FATAL_ERROR "MICROPY_BOARD not set: build with idf.py -DBOARD=EPUCK_20 build (or EPUCK_22)")
+    endif()
 endif()
 
 # Set the board directory and check that it exists.
